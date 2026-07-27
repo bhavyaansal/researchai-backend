@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+*.egg-info/
+
+# Environment
+.env
+.env.*
+!.env.railway
+
+# Data (ephemeral on Railway — don't commit)
+uploads/
+chroma_store/
+data/
+
+# IDE
+.idea/
+.vscode/
+*.iml
