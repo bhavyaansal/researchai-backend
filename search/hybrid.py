@@ -37,8 +37,8 @@ def hybrid_search(query_text: str, bm25_index, sources: list, top_k: int = 5) ->
         lex_s = lex_by_text.get(text, 0.0)
         sem_s = sem_by_text.get(text, 0.0)
 
-        # Ignore weak semantic noise when there is zero lexical overlap
-        if lex_s == 0.0 and sem_s < 0.50:
+        # Ignore weak semantic noise (under 0.40) when there is zero lexical overlap
+        if lex_s == 0.0 and sem_s < 0.40:
             sem_s = 0.0
 
         c_score = combined_score(lex_s, sem_s)

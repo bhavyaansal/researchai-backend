@@ -28,11 +28,16 @@ def semantic_score(embedding_a: np.ndarray, embedding_b: np.ndarray) -> float:
 
 
 def combined_score(lex_score: float, sem_score: float) -> float:
-    """Weighted combination of lexical and semantic scores."""
-    return (
+    """
+    Combined similarity score.
+    Returns max of weighted average or individual scores so strong semantic similarity
+    (paraphrasing) or strong lexical similarity (direct copy) is not artificially suppressed.
+    """
+    weighted = (
         lex_score * settings.LEXICAL_WEIGHT
         + sem_score * settings.SEMANTIC_WEIGHT
     )
+    return max(weighted, sem_score, lex_score)
 
 
 def global_document_score(

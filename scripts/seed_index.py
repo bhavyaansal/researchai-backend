@@ -53,28 +53,25 @@ def main():
     init_db()
     db = SessionLocal()
 
-    chroma_records = []
     for src in SAMPLE_SOURCES:
         existing = db.query(SourceDocument).filter(
             SourceDocument.sentence_text == src["text"]
         ).first()
-        if existing:
-            continue
-
-        doc = SourceDocument(source_title=src["title"], sentence_text=src["text"])
-        db.add(doc)
-        db.flush()  # get doc.id without committing yet
-
-        chroma_records.append({"id": doc.id, "title": src["title"], "text": src["text"]})
+        if not existing:
+            doc = SourceDocument(source_title=src["title"], sentence_text=src["text"])
+            db.add(doc)
 
     db.commit()
+
+    # Always ensure ChromaDB is synced with all SourceDocuments in SQLite
+    all_docs = db.query(SourceDocument).all()
+    chroma_records = [{"id": str(doc.id), "title": doc.source_title, "text": doc.sentence_text} for doc in all_docs]
+
     db.close()
 
     if chroma_records:
         index_source_documents(chroma_records)
-        print(f"Seeded {len(chroma_records)} new source documents into SQLite + ChromaDB.")
-    else:
-        print("No new source documents to seed (already present).")
+        print(f"Synced {len(chroma_records)} source documents into SQLite + ChromaDB.")
 
 
 if __name__ == "__main__":

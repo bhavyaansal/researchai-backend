@@ -18,7 +18,10 @@ def get_collection():
     if _client is None:
         _client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
     if _collection is None:
-        _collection = _client.get_or_create_collection(name=COLLECTION_NAME)
+        _collection = _client.get_or_create_collection(
+            name=COLLECTION_NAME,
+            metadata={"hnsw:space": "cosine"}
+        )
     return _collection
 
 
@@ -46,30 +49,35 @@ def search_semantic(query_text: str, top_k: int = 5) -> list[dict]:
     """
     Search the vector store for semantically similar source sentences.
     Returns [{"source_title":..., "source_text":..., "score": 0-1}, ...]
-    ChromaDB returns distance (lower = more similar), so we convert to a similarity score.
+    ChromaDB returns cosine distance (lower = more similar), converted to similarity (1 - dist).
     """
-    collection = get_collection()
-    if collection.count() == 0:
+    try:
+        collection = get_collection()
+        count = collection.count()
+        if count == 0:
+            return []
+
+        query_embedding = embed_text(query_text).tolist()
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=min(top_k, count),
+        )
+
+        matches = []
+        docs = results.get("documents", [[]])[0]
+        metas = results.get("metadatas", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+
+        for doc_text, meta, dist in zip(docs, metas, distances):
+            # In cosine space, cosine_similarity = 1.0 - cosine_distance
+            score = max(0.0, min(1.0, 1.0 - float(dist)))
+            matches.append({
+                "source_title": meta.get("title", "unknown") if meta else "unknown",
+                "source_text": doc_text,
+                "score": score,
+            })
+
+        return matches
+    except Exception as e:
+        print(f"Error in search_semantic: {e}")
         return []
-
-    query_embedding = embed_text(query_text).tolist()
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=min(top_k, collection.count()),
-    )
-
-    matches = []
-    docs = results.get("documents", [[]])[0]
-    metas = results.get("metadatas", [[]])[0]
-    distances = results.get("distances", [[]])[0]
-
-    for doc_text, meta, dist in zip(docs, metas, distances):
-        # Convert cosine distance to similarity: similarity = 1 - distance (clamped)
-        score = max(0.0, min(1.0, 1.0 - dist))
-        matches.append({
-            "source_title": meta.get("title", "unknown"),
-            "source_text": doc_text,
-            "score": score,
-        })
-
-    return matches

@@ -36,6 +36,12 @@ def split_into_paragraphs(text: str) -> list[dict]:
 
     Returns a list of dicts: [{"text": ..., "start_char": ..., "end_char": ...}, ...]
     """
+    if not text:
+        return []
+
+    # Normalize CRLF to LF
+    text = text.replace("\r\n", "\n")
+
     paragraphs = []
     cursor = 0
 

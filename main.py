@@ -33,6 +33,11 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     init_db()
+    try:
+        from scripts.seed_index import main as seed_main
+        seed_main()
+    except Exception as e:
+        print(f"Startup seeding warning: {e}")
 
 
 @app.get("/")

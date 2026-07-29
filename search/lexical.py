@@ -46,7 +46,7 @@ def search_lexical(query_text: str, bm25_index, sources: list, top_k: int = 5) -
     # instead, based on typical BM25 scores for genuinely matching short sentences.
     # Anything below this floor is treated as noise, not a real match.
     BM25_REFERENCE_CEILING = 8.0  # tune this against your real corpus
-    MIN_MEANINGFUL_SCORE = 1.0    # raw scores below this are considered no-match
+    MIN_MEANINGFUL_SCORE = 0.1    # raw scores below this are considered no-match
 
     scored = [
         {
