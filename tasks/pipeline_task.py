@@ -27,6 +27,7 @@ def run_pipeline(job_id: str):
         db.commit()
 
         full_text = extract_text(job.file_path)
+        job.full_text = full_text
         paragraphs = split_into_paragraphs(full_text)
 
         # ---- Stage 2: Scanning ----
@@ -37,8 +38,8 @@ def run_pipeline(job_id: str):
 
         flagged = []
         for para in paragraphs:
-            if len(para["text"].strip()) < 20:
-                continue  # skip very short paragraphs
+            if len(para["text"].strip()) < 5:
+                continue  # skip empty or extremely short lines
             match = hybrid_search(para["text"], bm25_index, sources, top_k=5)
             if match and match["combined_score"] >= settings.SIMILARITY_FLAG_THRESHOLD:
                 flagged.append((para, match))
@@ -93,6 +94,27 @@ def run_pipeline(job_id: str):
                 db.commit()
                 # Wait before next span to let rate limit recover
                 time.sleep(15)
+
+        # ---- Auto-Ingest Document into Reference Corpus for Future Scan Comparisons ----
+        try:
+            from search.semantic import index_source_documents
+            new_chroma_records = []
+            for p in paragraphs:
+                text_clean = p["text"].strip()
+                if len(text_clean) >= 15:
+                    existing = db.query(SourceDocument).filter(
+                        SourceDocument.sentence_text == text_clean
+                    ).first()
+                    if not existing:
+                        src_doc = SourceDocument(source_title=job.filename, sentence_text=text_clean)
+                        db.add(src_doc)
+                        db.flush()
+                        new_chroma_records.append({"id": str(src_doc.id), "title": job.filename, "text": text_clean})
+            db.commit()
+            if new_chroma_records:
+                index_source_documents(new_chroma_records)
+        except Exception as ingest_err:
+            print(f"Warning: Auto-ingest into corpus failed: {ingest_err}")
 
         # ---- Final scoring ----
         job.status = "validating"
