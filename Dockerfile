@@ -20,4 +20,5 @@ RUN mkdir -p uploads data chroma_store
 
 EXPOSE 8000
 
-CMD python scripts/seed_index.py && uvicorn main:app --host 0.0.0.0 --port $PORT
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# CMD python scripts/seed_index.py && uvicorn main:app --host 0.0.0.0 --port $PORT
