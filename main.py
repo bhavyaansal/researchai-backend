@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from db.models import init_db
 from api.routes import uploads, scan, report, download
 from auth.routes import router as auth_router
+from api.routes.admin import router as admin_router
 
 app = FastAPI(
     title="Plagiarism Detection & Rewriting API",
@@ -47,6 +48,7 @@ def health_check():
 
 # Mount routers
 app.include_router(auth_router)
+app.include_router(admin_router)
 app.include_router(uploads.router, tags=["Upload"])
 app.include_router(scan.router, tags=["Scan"])
 app.include_router(report.router, tags=["Report"])

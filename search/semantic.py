@@ -35,7 +35,13 @@ def index_source_documents(sources: list[dict]):
 
     collection = get_collection()
     texts = [s["text"] for s in sources]
-    embeddings = embed_texts(texts).tolist()
+    raw_embeddings = embed_texts(texts)
+
+    # Handle both numpy arrays and plain Python lists
+    if hasattr(raw_embeddings, "tolist"):
+        embeddings = raw_embeddings.tolist()
+    else:
+        embeddings = [e.tolist() if hasattr(e, "tolist") else list(e) for e in raw_embeddings]
 
     collection.upsert(
         ids=[s["id"] for s in sources],
@@ -57,7 +63,8 @@ def search_semantic(query_text: str, top_k: int = 5) -> list[dict]:
         if count == 0:
             return []
 
-        query_embedding = embed_text(query_text).tolist()
+        raw_query = embed_text(query_text)
+        query_embedding = raw_query.tolist() if hasattr(raw_query, "tolist") else list(raw_query)
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=min(top_k, count),
