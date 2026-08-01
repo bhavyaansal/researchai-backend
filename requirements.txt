@@ -1,10 +1,8 @@
-fastembed
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
 pymupdf
 python-docx
 rank-bm25
-sentence-transformers
 chromadb
 rapidfuzz
 scikit-learn
@@ -15,3 +13,22 @@ python-jose[cryptography]
 bcrypt
 email-validator
 requests
+numpy
+
+# fastembed
+# fastapi==0.111.0
+# uvicorn[standard]==0.30.1
+# pymupdf
+# python-docx
+# rank-bm25
+# sentence-transformers
+# chromadb
+# rapidfuzz
+# scikit-learn
+# sqlalchemy
+# python-multipart
+# python-dotenv
+# python-jose[cryptography]
+# bcrypt
+# email-validator
+# requests
