@@ -32,34 +32,34 @@ def on_startup():
     init_db()
 
     # Auto-seed corpus if empty
-    db: Session = SessionLocal()
-    try:
-        count = db.query(SourceDocument).count()
-        if count == 0:
-            print("Corpus is empty — seeding source documents...")
-            chroma_records = []
-            for src in SAMPLE_SOURCES:
-                doc = SourceDocument(
-                    source_title=src["title"],
-                    sentence_text=src["text"]
-                )
-                db.add(doc)
-                db.flush()
-                chroma_records.append({
-                    "id": doc.id,
-                    "title": src["title"],
-                    "text": src["text"]
-                })
-            db.commit()
-            if chroma_records:
-                index_source_documents(chroma_records)
-            print(f"Auto-seeded {len(chroma_records)} source documents.")
-        else:
-            print(f"Corpus already has {count} documents — skipping seed.")
-    except Exception as e:
-        print(f"Seeding error (non-fatal): {e}")
-    finally:
-        db.close()
+    # db: Session = SessionLocal()
+    # try:
+    #     count = db.query(SourceDocument).count()
+    #     if count == 0:
+    #         print("Corpus is empty — seeding source documents...")
+    #         chroma_records = []
+    #         for src in SAMPLE_SOURCES:
+    #             doc = SourceDocument(
+    #                 source_title=src["title"],
+    #                 sentence_text=src["text"]
+    #             )
+    #             db.add(doc)
+    #             db.flush()
+    #             chroma_records.append({
+    #                 "id": doc.id,
+    #                 "title": src["title"],
+    #                 "text": src["text"]
+    #             })
+    #         db.commit()
+    #         if chroma_records:
+    #             index_source_documents(chroma_records)
+    #         print(f"Auto-seeded {len(chroma_records)} source documents.")
+    #     else:
+    #         print(f"Corpus already has {count} documents — skipping seed.")
+    # except Exception as e:
+    #     print(f"Seeding error (non-fatal): {e}")
+    # finally:
+    #     db.close()
 
 
 @app.get("/")
