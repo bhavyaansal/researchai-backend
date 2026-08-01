@@ -1,53 +1,54 @@
-"""
-Rewriting chain using Google Gemini API (free tier).
-Hard 30s timeout per call. Fails fast instead of hanging forever.
-"""
 import time
 import requests
+import os
 from config import settings
 from rewriter.prompts import SYSTEM_PROMPT, build_rewrite_prompt, build_retry_prompt
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-# CALL_TIMEOUT = 30       # hard timeout per request — never hang more than 30s
-# DELAY_AFTER_CALL = 5    # wait 5s after each successful call
+DELAY_AFTER_CALL = 3
 
 
 def _call_groq(prompt: str) -> str:
-    api_key = settings.GROQ_API_KEY
+    api_key = os.getenv("GROQ_API_KEY", "")
     if not api_key:
-        raise RuntimeError("GROQ_API_KEY not set in .env")
+        raise RuntimeError("GROQ_API_KEY not set in environment variables")
 
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
     payload = {
-        "contents": [{"parts": [{"text": f"{SYSTEM_PROMPT}\n\n{prompt}"}]}],
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 512},
+        "model": "llama-3.1-8b-instant",
+        "messages": [
+            {"role": "user", "content": f"{SYSTEM_PROMPT}\n\n{prompt}"}
+        ],
+        "max_tokens": 512,
+        "temperature": 0.7,
     }
 
     try:
         response = requests.post(
-            f"{GROQ_API_URL}?key={api_key}",
+            GROQ_API_URL,
             json=payload,
-            # timeout=CALL_TIMEOUT,   # hard timeout — raises exception if exceeded
+            headers=headers,
+            timeout=30,
         )
     except requests.exceptions.Timeout:
-        raise RuntimeError("groq API timed out after 30s — skipping this span")
+        raise RuntimeError("Groq API timed out after 30s")
     except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"groq API connection error: {e}")
+        raise RuntimeError(f"Groq API connection error: {e}")
 
     if response.status_code == 429:
-        raise RuntimeError("groq rate limit (15 RPM) — skipping this span")
-    if response.status_code == 404:
-        raise RuntimeError(f"groq model not found: {response.text[:100]}")
-    if response.status_code == 403:
-        raise RuntimeError("groq API key invalid or quota exhausted")
+        raise RuntimeError("Groq rate limit hit — wait a moment and retry")
     if response.status_code != 200:
-        raise RuntimeError(f"groq error {response.status_code}: {response.text[:100]}")
+        raise RuntimeError(f"Groq API error {response.status_code}: {response.text[:200]}")
 
     try:
-        result = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        # time.sleep(DELAY_AFTER_CALL)
+        result = response.json()["choices"][0]["message"]["content"].strip()
+        time.sleep(DELAY_AFTER_CALL)
         return result
     except (KeyError, IndexError):
-        raise RuntimeError("Unexpected groq response format")
+        raise RuntimeError("Unexpected Groq response format")
 
 
 def rewrite_paragraph(original_text: str, similarity_score: float) -> str:
