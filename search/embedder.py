@@ -1,38 +1,49 @@
-"""
-Lightweight embedder using scikit-learn TF-IDF vectors.
-No model download needed — works instantly on Railway free tier.
-Replaces sentence-transformers to avoid the 90MB model download timeout.
-"""
+"""Stub embedder - semantic search handled by semantic.py directly."""
 import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-
-_vectorizer = None
-_corpus_texts = []
-
-
-def _get_vectorizer():
-    global _vectorizer
-    if _vectorizer is None:
-        _vectorizer = TfidfVectorizer(
-            max_features=5000,
-            ngram_range=(1, 2),
-            stop_words='english',
-        )
-    return _vectorizer
-
-
-def embed_texts(texts: list[str]) -> np.ndarray:
-    global _corpus_texts
-    vectorizer = _get_vectorizer()
-    combined = list(set(_corpus_texts + list(texts)))
-    _corpus_texts = combined
-    vectorizer.fit(combined)
-    matrix = vectorizer.transform(texts)
-    return matrix.toarray()
-
 
 def embed_text(text: str) -> np.ndarray:
-    return embed_texts([text])[0]
+    return np.zeros(1)
+
+def embed_texts(texts: list[str]):
+    return [np.zeros(1) for _ in texts]
+
+# """
+# Lightweight embedder using scikit-learn TF-IDF vectors.
+# No model download needed — works instantly on Railway free tier.
+# Replaces sentence-transformers to avoid the 90MB model download timeout.
+# """
+# import numpy as np
+# from sklearn.feature_extraction.text import TfidfVectorizer
+
+# _vectorizer = None
+# _corpus_texts = []
+
+
+# def _get_vectorizer():
+#     global _vectorizer
+#     if _vectorizer is None:
+#         _vectorizer = TfidfVectorizer(
+#             max_features=5000,
+#             ngram_range=(1, 2),
+#             stop_words='english',
+#         )
+#     return _vectorizer
+
+
+# def embed_texts(texts: list[str]) -> np.ndarray:
+#     global _corpus_texts
+#     vectorizer = _get_vectorizer()
+#     combined = list(set(_corpus_texts + list(texts)))
+#     _corpus_texts = combined
+#     vectorizer.fit(combined)
+#     matrix = vectorizer.transform(texts)
+#     return matrix.toarray()
+
+
+# def embed_text(text: str) -> np.ndarray:
+#     return embed_texts([text])[0]
+
+# --------------------
 
 # """
 # Lightweight embedding model wrapper.
