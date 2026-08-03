@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db.models import init_db, SessionLocal, SourceDocument
-from api.routes import upload, scan, report
+from api.routes import uploads as upload, scan, report
 from api.routes.admin import router as admin_router
 from auth.routes import router as auth_router
 
