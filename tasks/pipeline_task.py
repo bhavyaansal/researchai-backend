@@ -215,12 +215,15 @@ def run_pipeline(job_id: str):
         db.commit()
 
     except Exception as e:
-        job = db.query(Job).filter(Job.id == job_id).first()
-
-        if job:
-            job.status = "failed"
-            job.error_message = str(e)
-            db.commit()
+        try:
+            db.rollback()
+            job = db.query(Job).filter(Job.id == job_id).first()
+            if job:
+                job.status = "failed"
+                job.error_message = str(e)
+                db.commit()
+        except Exception as inner_err:
+            print(f"Error handling job failure for {job_id}: {inner_err}")
 
     finally:
-        db.close()
+        db.close()

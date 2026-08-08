@@ -21,8 +21,12 @@ router = APIRouter()
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 
 
+from typing import Optional
+
+
 class TextUploadRequest(BaseModel):
     text: str
+    title: Optional[str] = None
 
 
 @router.post("/upload/text", response_model=JobResponse)
@@ -39,10 +43,14 @@ async def upload_text(
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(payload.text)
 
+    filename = payload.title.strip() if payload.title and payload.title.strip() else "text_input.txt"
+    if not filename.endswith(".txt"):
+        filename += ".txt"
+
     job = Job(
         id=job_id,
         user_id=current_user.id,
-        filename="text_input.txt",
+        filename=filename,
         file_path=file_path,
         status="uploaded",
     )

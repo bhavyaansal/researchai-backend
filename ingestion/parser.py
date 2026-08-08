@@ -40,25 +40,24 @@ def split_into_paragraphs(text: str) -> list[dict]:
         return []
 
     # Normalize CRLF to LF
-    text = text.replace("\r\n", "\n")
+    text_norm = text.replace("\r\n", "\n")
 
     paragraphs = []
     cursor = 0
 
-    delimiter = "\n\n" if "\n\n" in text else "\n"
-    for raw_para in text.split(delimiter):
-        para = raw_para.strip()
-        if not para:
-            cursor += len(raw_para) + len(delimiter)
-            continue
-
-        start = text.find(para, cursor)
-        if start == -1:
-            start = cursor
-        end = start + len(para)
-
-        paragraphs.append({"text": para, "start_char": start, "end_char": end})
-        cursor = end
+    delimiter = "\n\n" if "\n\n" in text_norm else "\n"
+    parts = text_norm.split(delimiter)
+    for i, raw_part in enumerate(parts):
+        para = raw_part.strip()
+        if para:
+            start = text_norm.find(para, cursor)
+            if start == -1:
+                start = cursor
+            end = start + len(para)
+            paragraphs.append({"text": para, "start_char": start, "end_char": end})
+            cursor = end + (len(raw_part) - (start - cursor) - len(para) if start >= cursor else 0)
+        cursor += len(delimiter) if i < len(parts) - 1 else 0
 
     return paragraphs
+
 
