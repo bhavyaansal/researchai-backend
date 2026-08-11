@@ -10,7 +10,6 @@ from db.models import (
     SessionLocal,
     Job,
     FlaggedSpan,
-    SourceDocument,
 )
 from ingestion.parser import extract_text, split_into_paragraphs
 from search.lexical import build_bm25_index
@@ -19,7 +18,6 @@ from mapping.coordinate_mapper import map_span_to_match
 from rewriter.rewrite_chain import rewrite_paragraph
 from rewriter.validator import validate_rewrite
 from scoring.similarity import global_document_score
-from search.semantic import index_source_documents
 from config import settings
 
 
@@ -146,49 +144,13 @@ def run_pipeline(job_id: str):
                 time.sleep(6)
 
         # --------------------------------------------------
-        # Auto-ingest into corpus
+        # NOTE: Auto-ingest of uploaded docs into corpus is intentionally DISABLED.
+        # Auto-ingesting user uploads causes "self-matching" on subsequent scans:
+        # every paragraph would match its own previously uploaded version at 100%.
+        # The reference corpus should only contain manually curated academic sources.
+        # (Admin can seed via POST /admin/seed with a secret key.)
         # --------------------------------------------------
-        try:
-            new_chroma_records = []
 
-            for para in paragraphs:
-                text = para["text"].strip()
-
-                if len(text) < 15:
-                    continue
-
-                existing = (
-                    db.query(SourceDocument)
-                    .filter(SourceDocument.sentence_text == text)
-                    .first()
-                )
-
-                if existing:
-                    continue
-
-                src = SourceDocument(
-                    source_title=job.filename,
-                    sentence_text=text,
-                )
-
-                db.add(src)
-                db.flush()
-
-                new_chroma_records.append(
-                    {
-                        "id": str(src.id),
-                        "title": job.filename,
-                        "text": text,
-                    }
-                )
-
-            db.commit()
-
-            if new_chroma_records:
-                index_source_documents(new_chroma_records)
-
-        except Exception as ingest_err:
-            print(f"Warning: Auto-ingest failed: {ingest_err}")
 
         # --------------------------------------------------
         # Final Validation

@@ -64,6 +64,7 @@ class SourceDocument(Base):
     id = Column(String, primary_key=True, default=gen_uuid)
     source_title = Column(String, nullable=False)
     sentence_text = Column(Text, nullable=False)
+    is_user_upload = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 

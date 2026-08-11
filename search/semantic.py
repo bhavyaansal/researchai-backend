@@ -16,7 +16,9 @@ def _build_index():
     global _vectorizer, _source_texts, _source_meta
     db = SessionLocal()
     try:
-        sources = db.query(SourceDocument).all()
+        sources = db.query(SourceDocument).filter(
+            SourceDocument.is_user_upload == 0
+        ).all()
         if not sources:
             return
         _source_texts = [s.sentence_text for s in sources]

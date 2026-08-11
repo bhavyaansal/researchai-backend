@@ -11,7 +11,7 @@ from typing import List
 import datetime
 
 from db.models import get_db, Job, FlaggedSpan, User
-from db.schemas import ReportResponse, JobResponse
+from db.schemas import ReportResponse, JobResponse, FlaggedSpanResponse
 from auth.dependencies import get_current_user
 
 router = APIRouter()
@@ -27,7 +27,17 @@ def get_report(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     spans = db.query(FlaggedSpan).filter(FlaggedSpan.job_id == job_id).all()
-    return ReportResponse(job=job, spans=spans, full_text=job.full_text)
+
+    return ReportResponse(
+        job_id=str(job.id),
+        filename=job.filename or "Untitled document",
+        status=job.status or "done",
+        global_similarity_score=job.global_similarity_score or 0.0,
+        flagged_spans=[FlaggedSpanResponse.from_db(s) for s in spans],
+        full_text=job.full_text,
+        rewritten_full_text=None,
+        created_at=job.created_at,
+    )
 
 
 @router.get("/jobs", response_model=List[JobResponse])

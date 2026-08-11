@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db.models import init_db, SessionLocal, SourceDocument
-from api.routes import uploads as upload, scan, report, download
+from api.routes import uploads as upload, scan, report, download, paraphrase
 from api.routes.admin import router as admin_router
 from auth.routes import router as auth_router
 from search.semantic import index_source_documents
@@ -65,4 +65,6 @@ app.include_router(upload.router, tags=["Upload"])
 app.include_router(scan.router, tags=["Scan"])
 app.include_router(report.router, tags=["Report"])
 app.include_router(download.router)
+app.include_router(paraphrase.router, tags=["Paraphrase"])
+
 

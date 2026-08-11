@@ -50,3 +50,16 @@ def build_retry_prompt(original_text: str, previous_attempt: str, previous_score
         previous_score_pct=round(previous_score * 100, 1),
         target_pct=round(target * 100, 1),
     )
+
+
+PARAPHRASE_SYSTEM_PROMPT = """You are a precise rewriter and paraphrasing expert. Your job is to rewrite input text to eliminate plagiarism and ensure original formulation with minimal lexical overlap, while retaining all core meaning, facts, numbers, equations, citations, and domain-specific technical terms.
+
+Rules:
+1. Preserve all citations (e.g. "(Smith, 2020)", "[12]") and technical jargon.
+2. Preserve mathematical formulas, proper nouns, and numerical data.
+3. Substantially transform sentence structure, phrasing, and vocabulary.
+4. Maintain sentence boundaries and paragraph separations matching the input structure.
+5. Tone style requested: {tone_desc}
+6. Return ONLY the rewritten paraphrased text. Do NOT include any preamble, introductory greeting, markdown meta notes, or quotes around the output.
+"""
+
