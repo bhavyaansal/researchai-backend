@@ -7,6 +7,11 @@ from rewriter.prompts import SYSTEM_PROMPT, PARAPHRASE_SYSTEM_PROMPT, build_rewr
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 DELAY_AFTER_CALL = 3
 
+# llama-3.1-8b-instant moved to Groq's Enterprise-only tier and is no
+# longer reachable with a normal developer API key (404 model_not_found).
+# openai/gpt-oss-20b is the current fast/cheap developer-tier model.
+GROQ_MODEL = "openai/gpt-oss-20b"
+
 
 def _call_groq(prompt: str) -> str:
     api_key = os.getenv("GROQ_API_KEY", "")
@@ -18,7 +23,7 @@ def _call_groq(prompt: str) -> str:
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "llama-3.1-8b-instant",
+        "model": GROQ_MODEL,
         "messages": [
             {"role": "user", "content": f"{SYSTEM_PROMPT}\n\n{prompt}"}
         ],
@@ -69,7 +74,7 @@ def paraphrase_text(text: str, tone: str = "academic") -> str:
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "llama-3.1-8b-instant",
+        "model": GROQ_MODEL,
         "messages": [
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": f"Text to paraphrase:\n\"\"\"{text}\"\"\""}
@@ -111,4 +116,4 @@ def rewrite_paragraph_retry(
 ) -> str:
     return _call_groq(build_retry_prompt(
         original_text, previous_attempt, previous_score, settings.TARGET_GLOBAL_THRESHOLD
-    ))
+    ))
