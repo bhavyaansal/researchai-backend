@@ -92,8 +92,11 @@ def run_pipeline(job_id: str):
             ):
                 flagged.append((para, match))
 
-        # Prevent excessive Gemini requests
-        flagged = flagged[:5]
+        # NOTE: previously capped to flagged[:5] to limit Gemini usage.
+        # Now rewriting every flagged paragraph — the 6s sleep between
+        # calls below is what keeps this inside the Gemini free-tier
+        # RPM limit, so removing the cap is safe, just slower on
+        # documents with many flagged spans.
 
         # --------------------------------------------------
         # Stage 3 : Coordinate Mapping

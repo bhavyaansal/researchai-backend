@@ -12,8 +12,8 @@ class Settings:
     CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "./chroma_store")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./data/plagiarism.db")
 
-    # Gemini API 
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    # GROQ API 
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 
     # Embedding model (sentence-transformers — runs locally, free)
     EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2") 
