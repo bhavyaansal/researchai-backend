@@ -59,5 +59,3 @@ def split_into_paragraphs(text: str) -> list[dict]:
         cursor += len(delimiter) if i < len(parts) - 1 else 0
 
     return paragraphs
-
-

@@ -43,4 +43,3 @@ def retrigger_rewrite(
         db.refresh(job)
         threading.Thread(target=run_pipeline, args=(job.id,), daemon=True).start()
     return job
-

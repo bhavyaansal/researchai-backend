@@ -12,8 +12,8 @@ def map_span_to_match(paragraph: dict, match: dict) -> dict:
     into a single record describing one flagged span.
 
     paragraph: {"text":..., "start_char":..., "end_char":...}
-    match:     {"source_title":..., "source_text":..., "lexical_score":...,
-                 "semantic_score":..., "combined_score":...}
+    match:     {"source_title":..., "source_text":..., "source_url":...,
+                 "lexical_score":..., "semantic_score":..., "combined_score":...}
     """
     return {
         "original_text": paragraph["text"],
@@ -21,6 +21,7 @@ def map_span_to_match(paragraph: dict, match: dict) -> dict:
         "end_char": paragraph["end_char"],
         "matched_source_title": match["source_title"],
         "matched_source_text": match["source_text"],
+        "source_url": match.get("source_url"),
         "lexical_score": match["lexical_score"],
         "semantic_score": match["semantic_score"],
         "combined_score": match["combined_score"],

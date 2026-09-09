@@ -2,9 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 import io
 import os
+import datetime
 
 from db.models import get_db, Job, FlaggedSpan, User
 from auth.dependencies import get_current_user
+from .ieee_pdf import build_ieee_pdf, reconstruct_document_runs
 
 router = APIRouter(prefix="/download", tags=["Download"])
 
@@ -40,7 +42,7 @@ def download_report(
 
     # Generate a beautiful textual report
     score = (job.global_similarity_score or 0.0) * 100
-    
+
     buf = io.StringIO()
     buf.write("═════════════════════════════════════════════════════════════════\n")
     buf.write("                      RESEARCHAI REPORT ANALYSIS                 \n")
@@ -104,26 +106,45 @@ def download_rewritten(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """
+    Returns the merged document — original text plus AI-rewritten spans —
+    as a single downloadable PDF, laid out like an IEEE conference paper
+    (title block + two-column body). Rewritten portions are shown in
+    blue italics so the reader can see exactly what changed.
+    """
     job = db.query(Job).filter(Job.id == job_id, Job.user_id == current_user.id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
     spans = db.query(FlaggedSpan).filter(FlaggedSpan.job_id == job_id).all()
-    
-    # Reconstruct document text
-    rewritten_doc = reconstruct_document(job.full_text, spans)
-    if not rewritten_doc:
-        rewritten_doc = "No content available. The original document was empty."
 
-    # Return response
-    safe_filename = job.filename.replace(" ", "_")
-    base, ext = os.path.splitext(safe_filename)
-    download_name = f"{base}_rewritten.txt"
+    runs = reconstruct_document_runs(job.full_text, spans)
+    if not runs:
+        runs = [("No content available. The original document was empty.", False)]
 
-    # Return as response
+    score = (job.global_similarity_score or 0.0) * 100
+    generated_at = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+
+    # Title: use the filename (minus extension) as a stand-in paper title.
+    base_name, ext = os.path.splitext(job.filename or "Untitled Document")
+    title = base_name.replace("_", " ").replace("-", " ").strip() or "Untitled Document"
+
+    pdf_bytes = build_ieee_pdf(
+        title=title,
+        filename=job.filename or "Untitled Document",
+        job_id=str(job.id),
+        similarity_pct=score,
+        generated_at=generated_at,
+        runs=runs,
+    )
+
+    safe_filename = (job.filename or "document").replace(" ", "_")
+    base, _ext = os.path.splitext(safe_filename)
+    download_name = f"{base}_rewritten_ieee.pdf"
+
     return Response(
-        content=rewritten_doc,
-        media_type="text/plain",
+        content=pdf_bytes,
+        media_type="application/pdf",
         headers={
             "Content-Disposition": f"attachment; filename={download_name}",
             "Access-Control-Expose-Headers": "Content-Disposition"

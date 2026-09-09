@@ -20,6 +20,25 @@ from rewriter.validator import validate_rewrite
 from scoring.similarity import global_document_score
 from config import settings
 
+# Max number of live web-search fallback attempts allowed per document
+# scan. Each attempt can take up to a few seconds (network round trip to
+# the self-hosted SearXNG instance), so this caps how much latency one
+# scan can add when many paragraphs have no local corpus match.
+MAX_WEB_SEARCHES_PER_JOB = 8
+
+
+class WebBudget:
+    """Tracks how many web-search fallback attempts a single scan has left."""
+
+    def __init__(self, limit: int):
+        self.remaining = limit
+
+    def use(self) -> bool:
+        if self.remaining > 0:
+            self.remaining -= 1
+            return True
+        return False
+
 
 def run_pipeline(job_id: str):
     db = SessionLocal()
@@ -49,6 +68,7 @@ def run_pipeline(job_id: str):
         bm25_index, sources = build_bm25_index(db)
 
         flagged = []
+        web_budget = WebBudget(MAX_WEB_SEARCHES_PER_JOB)
 
         for para in paragraphs:
             text = para["text"].strip()
@@ -62,6 +82,7 @@ def run_pipeline(job_id: str):
                 bm25_index,
                 sources,
                 top_k=5,
+                web_budget=web_budget,
             )
 
             if (
@@ -103,6 +124,7 @@ def run_pipeline(job_id: str):
             print(
                 f"[{i+1}/{len(span_records)}] "
                 f"Rewriting span | score={span.combined_score:.2f}"
+                + (f" | web:{span.source_url}" if span.source_url else "")
             )
 
             # Already below target -> don't waste Gemini call
@@ -188,4 +210,4 @@ def run_pipeline(job_id: str):
             print(f"Error handling job failure for {job_id}: {inner_err}")
 
     finally:
-        db.close()
+        db.close()

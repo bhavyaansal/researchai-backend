@@ -83,6 +83,9 @@ class FlaggedSpan(Base):
 
     matched_source_title = Column(String, nullable=True)
     matched_source_text = Column(Text, nullable=True)
+    # Populated only for web-sourced matches (via SearXNG fallback).
+    # Stays NULL for matches found in the local SourceDocument corpus.
+    source_url = Column(String, nullable=True)
 
     lexical_score = Column(Float, default=0.0)
     semantic_score = Column(Float, default=0.0)
@@ -108,12 +111,18 @@ def init_db():
     try:
         from sqlalchemy import inspect, text
         inspector = inspect(engine)
-        columns = [c['name'] for c in inspector.get_columns('jobs')]
-        if 'full_text' not in columns:
+
+        job_columns = [c['name'] for c in inspector.get_columns('jobs')]
+        if 'full_text' not in job_columns:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE jobs ADD COLUMN full_text TEXT"))
+
+        span_columns = [c['name'] for c in inspector.get_columns('flagged_spans')]
+        if 'source_url' not in span_columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE flagged_spans ADD COLUMN source_url TEXT"))
     except Exception as e:
-        print(f"Error checking/adding full_text column: {e}")
+        print(f"Error checking/adding columns: {e}")
 
 
 def get_db():

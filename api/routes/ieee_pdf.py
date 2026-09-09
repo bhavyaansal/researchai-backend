@@ -1,0 +1,185 @@
+"""
+ieee_pdf.py
+
+Builds a two-column, IEEE-conference-paper-style PDF from a document's
+full text plus a set of "runs" marking which portions were AI-rewritten.
+
+Drop this file into api/routes/ (next to download.py) and add
+`reportlab` to requirements.txt.
+"""
+import io
+from xml.sax.saxutils import escape as xml_escape
+
+from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import (
+    BaseDocTemplate,
+    PageTemplate,
+    Frame,
+    Paragraph,
+    NextPageTemplate,
+    FrameBreak,
+    HRFlowable,
+)
+from reportlab.lib import colors
+
+MODIFIED_COLOR = "#0B5FFF"  # blue — used to flag AI-rewritten text
+
+
+def _build_styles():
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name="IEEETitle", fontName="Times-Bold", fontSize=18, leading=22,
+        alignment=TA_CENTER, spaceAfter=6,
+    ))
+    styles.add(ParagraphStyle(
+        name="IEEEMeta", fontName="Times-Roman", fontSize=9, leading=12,
+        alignment=TA_CENTER, textColor=colors.HexColor("#444444"), spaceAfter=2,
+    ))
+    styles.add(ParagraphStyle(
+        name="IEEENote", fontName="Times-Roman", fontSize=8.5,
+        leading=11, spaceBefore=6, spaceAfter=4,
+    ))
+    styles.add(ParagraphStyle(
+        name="IEEEBody", fontName="Times-Roman", fontSize=9.5, leading=12,
+        alignment=TA_JUSTIFY, spaceAfter=6, firstLineIndent=12,
+    ))
+    return styles
+
+
+def reconstruct_document_runs(full_text: str, spans: list) -> list:
+    """
+    Like reconstruct_document(), but instead of returning a flat string,
+    returns an ordered list of (text, is_modified) tuples so the PDF
+    builder can visually flag which parts were AI-rewritten.
+    """
+    if not full_text:
+        return []
+    sorted_spans = sorted(spans, key=lambda s: s.start_char)
+    runs = []
+    last_idx = 0
+    for span in sorted_spans:
+        if span.start_char > last_idx:
+            runs.append((full_text[last_idx:span.start_char], False))
+        if span.rewritten_text is not None:
+            runs.append((span.rewritten_text, True))
+        else:
+            runs.append((span.original_text, False))
+        last_idx = span.end_char
+    if last_idx < len(full_text):
+        runs.append((full_text[last_idx:], False))
+    return runs
+
+
+def _runs_to_paragraphs(runs, style):
+    marked = []
+    for text, is_modified in runs:
+        if not text:
+            continue
+        escaped = xml_escape(text)
+        if is_modified:
+            marked.append(f'<font color="{MODIFIED_COLOR}"><i>{escaped}</i></font>')
+        else:
+            marked.append(escaped)
+    full_markup = "".join(marked)
+
+    paragraphs = []
+    for block in full_markup.split("\n\n"):
+        block = block.strip("\n")
+        if not block.strip():
+            continue
+        block = block.replace("\n", "<br/>")
+        paragraphs.append(Paragraph(block, style))
+    return paragraphs
+
+
+def build_ieee_pdf(
+    *,
+    title: str,
+    filename: str,
+    job_id: str,
+    similarity_pct: float,
+    generated_at: str,
+    runs: list,
+) -> bytes:
+    """
+    runs: ordered list of (text, is_modified) tuples covering the whole
+    document (see reconstruct_document_runs). Returns raw PDF bytes.
+    """
+    buf = io.BytesIO()
+    styles = _build_styles()
+
+    page_w, page_h = LETTER
+    margin = 0.6 * inch
+    gutter = 0.28 * inch
+    col_w = (page_w - 2 * margin - gutter) / 2
+
+    header_h = 1.5 * inch
+    body_top = page_h - margin - header_h
+
+    header_frame = Frame(
+        margin, body_top, page_w - 2 * margin, header_h,
+        id="header", topPadding=0, bottomPadding=6,
+    )
+    col_left_first = Frame(
+        margin, margin, col_w, body_top - margin, id="colL1", topPadding=6,
+    )
+    col_right_first = Frame(
+        margin + col_w + gutter, margin, col_w, body_top - margin,
+        id="colR1", topPadding=6,
+    )
+    col_left = Frame(
+        margin, margin, col_w, page_h - 2 * margin, id="colL", topPadding=6,
+    )
+    col_right = Frame(
+        margin + col_w + gutter, margin, col_w, page_h - 2 * margin,
+        id="colR", topPadding=6,
+    )
+
+    doc = BaseDocTemplate(
+        buf, pagesize=LETTER,
+        leftMargin=margin, rightMargin=margin,
+        topMargin=margin, bottomMargin=margin,
+        title=title,
+    )
+    doc.addPageTemplates([
+        PageTemplate(id="First", frames=[header_frame, col_left_first, col_right_first]),
+        PageTemplate(id="Later", frames=[col_left, col_right]),
+    ])
+
+    story = [
+        Paragraph(xml_escape(title), styles["IEEETitle"]),
+        Paragraph(
+            f"Original file: {xml_escape(filename)} &nbsp;&bull;&nbsp; "
+            f"Job ID: {xml_escape(job_id)}",
+            styles["IEEEMeta"],
+        ),
+        Paragraph(
+            f"Generated by ResearchAI &nbsp;&bull;&nbsp; {xml_escape(generated_at)} "
+            f"&nbsp;&bull;&nbsp; Similarity: {similarity_pct:.1f}%",
+            styles["IEEEMeta"],
+        ),
+        HRFlowable(width="100%", thickness=0.75, color=colors.black,
+                   spaceBefore=4, spaceAfter=4),
+        Paragraph(
+            f'<b>Note:</b> Text shown in <font color="{MODIFIED_COLOR}"><i>blue '
+            f"italics</i></font> has been AI-rewritten to reduce similarity with "
+            f"matched sources. All other text is unchanged from the original "
+            f"submission.",
+            styles["IEEENote"],
+        ),
+        FrameBreak(),
+        NextPageTemplate("Later"),
+    ]
+
+    body_paragraphs = _runs_to_paragraphs(runs, styles["IEEEBody"])
+    if not body_paragraphs:
+        body_paragraphs = [Paragraph("No content available.", styles["IEEEBody"])]
+    story.extend(body_paragraphs)
+
+    doc.build(story)
+    pdf_bytes = buf.getvalue()
+    buf.close()
+    return pdf_bytes
