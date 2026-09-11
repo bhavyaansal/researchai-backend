@@ -1,13 +1,19 @@
 """
 ieee_pdf.py
 
-Builds a two-column, IEEE-conference-paper-style PDF from a document's
-full text plus a set of "runs" marking which portions were AI-rewritten.
+Builds a two-column, IEEE-conference-paper-style PDF that reconstructs
+the ORIGINAL document (with AI-rewritten spans merged in) rather than
+just dumping flat body text. It detects:
+  - a title (the document's own first line, if it looks like one)
+  - section headings ("Abstract", "1. Introduction", "I. RELATED WORK", etc.)
+and styles them accordingly, so the result reads like an actual paper
+the user could submit — not a wall of undifferentiated paragraphs.
 
 Drop this file into api/routes/ (next to download.py) and add
 `reportlab` to requirements.txt.
 """
 import io
+import re
 from xml.sax.saxutils import escape as xml_escape
 
 from reportlab.lib.pagesizes import LETTER
@@ -27,6 +33,59 @@ from reportlab.lib import colors
 
 MODIFIED_COLOR = "#0B5FFF"  # blue — used to flag AI-rewritten text
 
+# --------------------------------------------------------------------
+# Heading / title detection heuristics
+# --------------------------------------------------------------------
+
+_HEADING_KEYWORDS = {
+    "abstract", "keywords", "index terms", "introduction", "related work",
+    "literature review", "background", "methodology", "methods",
+    "materials and methods", "proposed method", "system design",
+    "implementation", "experimental setup", "experiments", "evaluation",
+    "results", "results and discussion", "discussion", "conclusion",
+    "conclusions", "future work", "limitations", "acknowledgment",
+    "acknowledgments", "acknowledgement", "acknowledgements", "references",
+    "bibliography", "appendix",
+}
+
+# "1. Introduction", "1.2 Related Work", "I. INTRODUCTION", "IV. Results"
+_NUMBERED_HEADING_RE = re.compile(
+    r'^(\d{1,2}(\.\d{1,2})*\.?|[IVXLCDM]{1,6}\.)\s+[A-Za-z].{0,80}$'
+)
+
+
+def _is_heading(text: str) -> bool:
+    """Best-effort detection of a section heading line."""
+    t = text.strip()
+    if not t or len(t) > 90:
+        return False
+
+    bare = t.rstrip(":").strip().lower()
+    if bare in _HEADING_KEYWORDS:
+        return True
+
+    if _NUMBERED_HEADING_RE.match(t):
+        return True
+
+    # Fully caps, short, no terminal sentence punctuation -> likely a heading
+    if t.isupper() and 3 <= len(t) <= 60 and not t.endswith((".", ",")):
+        return True
+
+    return False
+
+
+def _looks_like_title(text: str) -> bool:
+    """Best-effort detection of a document title (first line of the doc)."""
+    t = text.strip()
+    if not t or len(t) > 200:
+        return False
+    if _is_heading(t):
+        return False  # e.g. doc starts directly with "Abstract" — no title line
+    # Titles don't usually end with sentence-ending punctuation
+    if t.endswith((".", ";")):
+        return False
+    return True
+
 
 def _build_styles():
     styles = getSampleStyleSheet()
@@ -45,6 +104,10 @@ def _build_styles():
     styles.add(ParagraphStyle(
         name="IEEEBody", fontName="Times-Roman", fontSize=9.5, leading=12,
         alignment=TA_JUSTIFY, spaceAfter=6, firstLineIndent=12,
+    ))
+    styles.add(ParagraphStyle(
+        name="IEEEHeading", fontName="Times-Bold", fontSize=10.5, leading=13,
+        alignment=TA_CENTER, spaceBefore=10, spaceAfter=6,
     ))
     return styles
 
@@ -73,26 +136,81 @@ def reconstruct_document_runs(full_text: str, spans: list) -> list:
     return runs
 
 
-def _runs_to_paragraphs(runs, style):
-    marked = []
+def _split_into_blocks(runs):
+    """
+    Splits the ordered (text, is_modified) runs into paragraph blocks on
+    blank-line boundaries. Returns a list of blocks, where each block is
+    itself a list of (text, is_modified) runs belonging to that
+    paragraph (a run that spans a "\\n\\n" boundary is split across two
+    blocks, preserving its is_modified flag on both halves).
+    """
+    blocks = []
+    current = []
     for text, is_modified in runs:
         if not text:
             continue
+        parts = text.split("\n\n")
+        for i, part in enumerate(parts):
+            if part:
+                current.append((part, is_modified))
+            if i < len(parts) - 1:
+                blocks.append(current)
+                current = []
+    if current:
+        blocks.append(current)
+    return [b for b in blocks if any(t.strip() for t, _ in b)]
+
+
+def _block_plain_text(block) -> str:
+    return "".join(t for t, _ in block).strip()
+
+
+def _block_to_markup(block) -> str:
+    marked = []
+    for text, is_modified in block:
         escaped = xml_escape(text)
         if is_modified:
             marked.append(f'<font color="{MODIFIED_COLOR}"><i>{escaped}</i></font>')
         else:
             marked.append(escaped)
-    full_markup = "".join(marked)
+    markup = "".join(marked).strip("\n")
+    return markup.replace("\n", "<br/>")
 
-    paragraphs = []
-    for block in full_markup.split("\n\n"):
-        block = block.strip("\n")
-        if not block.strip():
+
+def _build_body_flowables(runs, styles):
+    """
+    Turns the raw runs into a list of Paragraph flowables, using
+    IEEEHeading style for detected section headings/titles and IEEEBody
+    for everything else. Returns (title_text_or_None, flowables) — if
+    the very first block looks like a document title, it's pulled out
+    separately instead of being included in the flowables list.
+    """
+    blocks = _split_into_blocks(runs)
+    if not blocks:
+        return None, []
+
+    detected_title = None
+    start_index = 0
+    first_plain = _block_plain_text(blocks[0])
+    if _looks_like_title(first_plain) and not any(m for _, m in blocks[0]):
+        # Only trust the original doc's own text as a title (not a
+        # rewritten span) — an AI-rewritten first line is unlikely to
+        # be the actual paper title.
+        detected_title = first_plain
+        start_index = 1
+
+    flowables = []
+    for block in blocks[start_index:]:
+        plain = _block_plain_text(block)
+        markup = _block_to_markup(block)
+        if not markup:
             continue
-        block = block.replace("\n", "<br/>")
-        paragraphs.append(Paragraph(block, style))
-    return paragraphs
+        if _is_heading(plain):
+            flowables.append(Paragraph(markup, styles["IEEEHeading"]))
+        else:
+            flowables.append(Paragraph(markup, styles["IEEEBody"]))
+
+    return detected_title, flowables
 
 
 def build_ieee_pdf(
@@ -107,9 +225,16 @@ def build_ieee_pdf(
     """
     runs: ordered list of (text, is_modified) tuples covering the whole
     document (see reconstruct_document_runs). Returns raw PDF bytes.
+
+    `title` is used as a fallback header title if the document's own
+    first line isn't confidently detected as a title (e.g. the doc
+    starts directly with "Abstract" or a numbered section).
     """
     buf = io.BytesIO()
     styles = _build_styles()
+
+    detected_title, body_flowables = _build_body_flowables(runs, styles)
+    display_title = detected_title or title
 
     page_w, page_h = LETTER
     margin = 0.6 * inch
@@ -142,7 +267,7 @@ def build_ieee_pdf(
         buf, pagesize=LETTER,
         leftMargin=margin, rightMargin=margin,
         topMargin=margin, bottomMargin=margin,
-        title=title,
+        title=display_title,
     )
     doc.addPageTemplates([
         PageTemplate(id="First", frames=[header_frame, col_left_first, col_right_first]),
@@ -150,7 +275,7 @@ def build_ieee_pdf(
     ])
 
     story = [
-        Paragraph(xml_escape(title), styles["IEEETitle"]),
+        Paragraph(xml_escape(display_title), styles["IEEETitle"]),
         Paragraph(
             f"Original file: {xml_escape(filename)} &nbsp;&bull;&nbsp; "
             f"Job ID: {xml_escape(job_id)}",
@@ -174,10 +299,9 @@ def build_ieee_pdf(
         NextPageTemplate("Later"),
     ]
 
-    body_paragraphs = _runs_to_paragraphs(runs, styles["IEEEBody"])
-    if not body_paragraphs:
-        body_paragraphs = [Paragraph("No content available.", styles["IEEEBody"])]
-    story.extend(body_paragraphs)
+    if not body_flowables:
+        body_flowables = [Paragraph("No content available.", styles["IEEEBody"])]
+    story.extend(body_flowables)
 
     doc.build(story)
     pdf_bytes = buf.getvalue()
