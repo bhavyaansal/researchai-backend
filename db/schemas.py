@@ -58,7 +58,7 @@ class FlaggedSpanResponse(BaseModel):
             start_offset=span.start_char or 0,
             end_offset=span.end_char or 0,
             source_title=span.matched_source_title,
-            source_url=None,
+            source_url=span.source_url,
             lexical_score=span.lexical_score or 0.0,
             semantic_score=span.semantic_score or 0.0,
             combined_score=span.combined_score or 0.0,

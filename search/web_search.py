@@ -29,7 +29,8 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
     raising, so a flaky search never crashes a scan — callers should
     treat an empty list as "no web match found for this query".
     """
-    if not SEARXNG_URL:
+    searxng_url = os.environ.get("SEARXNG_URL", SEARXNG_URL).rstrip("/")
+    if not searxng_url:
         raise SearXNGNotConfiguredError(
             "SEARXNG_URL environment variable is not set."
         )
