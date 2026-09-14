@@ -13,40 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from db.models import SessionLocal, init_db, SourceDocument
 from search.semantic import index_source_documents
 
-SAMPLE_SOURCES = [
-    {
-        "title": "Climate Change Review 2021",
-        "text": "Global temperatures have risen significantly over the past century due to human activities such as the burning of fossil fuels.",
-    },
-    {
-        "title": "Climate Change Review 2021",
-        "text": "The Intergovernmental Panel on Climate Change has reported that greenhouse gas emissions are the primary driver of global warming.",
-    },
-    {
-        "title": "Social Media & Adolescent Mental Health (2020)",
-        "text": "Investigate the relationship between social media usage and mental health issues, including anxiety and depression, among college students.",
-    },
-    {
-        "title": "Social Media & Adolescent Mental Health (2020)",
-        "text": "A review of existing literature reveals mixed outcomes regarding social media's impact on mental health. Some studies suggest that social media can enhance social support and well-being, while others point to increased risks of anxiety, depression, and loneliness.",
-    },
-    {
-        "title": "Social Media & Adolescent Mental Health (2020)",
-        "text": "The study used a mixed-methods design, combining quantitative surveys with qualitative interviews to gather insights into the relationships between social media use patterns and mental health status among randomly selected college students.",
-    },
-    {
-        "title": "Machine Learning Foundations",
-        "text": "Neural networks are computational models inspired by the structure and function of biological neural systems in the brain.",
-    },
-    {
-        "title": "Machine Learning Foundations",
-        "text": "Gradient descent is an optimization algorithm used to minimize the loss function by iteratively adjusting model parameters.",
-    },
-    {
-        "title": "Quantum Computing Basics",
-        "text": "Quantum computers use qubits, which can exist in superposition, allowing them to process multiple states simultaneously.",
-    },
-]
+SAMPLE_SOURCES = []
 
 
 def main():

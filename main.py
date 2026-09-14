@@ -16,17 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SAMPLE_SOURCES = [
-    {"title": "Climate Change Review 2021", "text": "Global temperatures have risen significantly over the past century due to human activities such as the burning of fossil fuels."},
-    {"title": "Climate Change Review 2021", "text": "The Intergovernmental Panel on Climate Change has reported that greenhouse gas emissions are the primary driver of global warming."},
-    {"title": "Machine Learning Foundations", "text": "Neural networks are computational models inspired by the structure and function of biological neural systems in the human brain."},
-    {"title": "Machine Learning Foundations", "text": "Gradient descent is an optimization algorithm used to minimize the loss function by iteratively adjusting model parameters."},
-    {"title": "Machine Learning Foundations", "text": "Deep learning models require large amounts of labeled training data to achieve high accuracy on classification tasks."},
-    {"title": "Social Media Mental Health Study 2023", "text": "Research indicates a significant correlation between high social media usage and increased levels of anxiety and depression among college students."},
-    {"title": "Social Media Mental Health Study 2023", "text": "Studies employing mixed-methods approaches combining surveys and interviews reveal that frequent social media use negatively impacts mental health status."},
-    {"title": "Academic Integrity Systems 2022", "text": "A plagiarism checker functions through a sequential four-phase pipeline that breaks down text structurally and checks for conceptual overlaps."},
-]
-
+SAMPLE_SOURCES = []
 
 @app.on_event("startup")
 def on_startup():

@@ -24,8 +24,16 @@ from config import settings
 # Max number of live web-search fallback attempts allowed per document
 # scan. Each attempt can take up to a few seconds (network round trip to
 # the self-hosted SearXNG instance), so this caps how much latency one
-# scan can add when many paragraphs have no local corpus match.
-MAX_WEB_SEARCHES_PER_JOB = 8
+# scan can add.
+#
+# Raised from 8 -> 25 now that the local SourceDocument corpus is
+# intentionally empty (see main.py) — every flagged-length paragraph
+# falls through to web search, so a low cap would leave most of a
+# normal-length document unchecked past the first few paragraphs.
+# Worst case adds ~25 * 6s (SearXNG timeout) of latency to a scan;
+# tune this down if scans start feeling too slow on your free-tier
+# hosting, or up if documents are still running out of budget.
+MAX_WEB_SEARCHES_PER_JOB = 25
 
 
 class WebBudget:
