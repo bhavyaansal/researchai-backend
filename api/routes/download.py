@@ -6,6 +6,7 @@ import datetime
 
 from db.models import get_db, Job, FlaggedSpan, User
 from auth.dependencies import get_current_user
+from config import settings
 from .ieee_pdf import build_ieee_pdf, reconstruct_document_runs
 
 router = APIRouter(prefix="/download", tags=["Download"])
@@ -129,6 +130,11 @@ def download_rewritten(
     base_name, ext = os.path.splitext(job.filename or "Untitled Document")
     title = base_name.replace("_", " ").replace("-", " ").strip() or "Untitled Document"
 
+    # Same path pipeline_task.py used when parsing — where any
+    # extracted figures/tables for this job were saved (DOCX only,
+    # for now — see ingestion/docx_parser.py).
+    assets_dir = os.path.join(settings.UPLOAD_DIR, str(job.id), "assets")
+
     pdf_bytes = build_ieee_pdf(
         title=title,
         filename=job.filename or "Untitled Document",
@@ -136,6 +142,7 @@ def download_rewritten(
         similarity_pct=score,
         generated_at=generated_at,
         runs=runs,
+        assets_dir=assets_dir,
     )
 
     safe_filename = (job.filename or "document").replace(" ", "_")

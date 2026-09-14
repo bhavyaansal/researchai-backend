@@ -5,6 +5,7 @@ On any failure, keeps original text and continues.
 """
 
 import time
+import os
 
 from db.models import (
     SessionLocal,
@@ -54,7 +55,12 @@ def run_pipeline(job_id: str):
         job.status = "parsing"
         db.commit()
 
-        full_text = extract_text(job.file_path)
+        # Extracted figures/tables (currently DOCX only — see
+        # ingestion/docx_parser.py) are saved here, so the download
+        # endpoint can find them again later via the same path.
+        assets_dir = os.path.join(settings.UPLOAD_DIR, job.id, "assets")
+
+        full_text = extract_text(job.file_path, assets_dir=assets_dir)
         job.full_text = full_text
 
         paragraphs = split_into_paragraphs(full_text)
@@ -101,6 +107,9 @@ def run_pipeline(job_id: str):
         # --------------------------------------------------
         # Stage 3 : Coordinate Mapping
         # --------------------------------------------------
+        job.status = "mapping"
+        db.commit()
+
         span_records = []
 
         for para, match in flagged:

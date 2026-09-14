@@ -11,17 +11,22 @@ class UnsupportedFileTypeError(Exception):
     pass
 
 
-def extract_text(file_path: str) -> str:
-    """Route to the correct parser based on file extension."""
+def extract_text(file_path: str, assets_dir: str = None) -> str:
+    """
+    Route to the correct parser based on file extension.
+
+    assets_dir, if given, is where extracted figures/tables get saved
+    (currently only used by the DOCX parser — see
+    ingestion/docx_parser.py). Passed through uniformly so future PDF
+    asset extraction can plug into the same call site without changing
+    every caller again.
+    """
     ext = os.path.splitext(file_path)[1].lower()
 
     if ext == ".pdf":
         return parse_pdf(file_path)
     elif ext == ".docx":
-        return parse_docx(file_path)
-    # elif ext == ".txt":
-    #     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-    #         return f.read()
+        return parse_docx(file_path, assets_dir=assets_dir)
     elif ext == ".txt":
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
