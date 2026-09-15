@@ -52,7 +52,8 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
         )
         resp.raise_for_status()
         data = resp.json()
-    except Exception:
+    except Exception as e:
+        print(f"[web_search] FAILED for query {query[:60]!r}: {type(e).__name__}: {e}")
         return []
 
     results = []

@@ -29,7 +29,8 @@ def _web_fallback_search(query_text: str, top_k: int = 5) -> list[dict]:
     """
     try:
         web_results = web_search(query_text, max_results=top_k)
-    except SearXNGNotConfiguredError:
+    except Exception as e:
+        print(f"[web_search] FAILED for query {query_text[:60]!r}: {type(e).__name__}: {e}")
         return []
 
     candidates = []
