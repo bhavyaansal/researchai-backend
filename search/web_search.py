@@ -6,7 +6,7 @@ sentences/paragraphs against live web content instead of (or alongside)
 the local SourceDocument corpus.
 
 Requires the SEARXNG_URL environment variable, e.g.:
-    SEARXNG_URL=https://researchai-searxng-production.up.railway.app
+    SEARXNG_URL=https://researchai-searxng-1.up.railway.app
 """
 import os
 import requests
