@@ -9,6 +9,7 @@ Requires the SEARXNG_URL environment variable, e.g.:
     SEARXNG_URL=https://researchai-searxng-1.up.railway.app
 """
 import os
+from time import time
 import requests
 
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "").rstrip("/")
@@ -54,6 +55,12 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
         )
         resp.raise_for_status()
         data = resp.json()
+        start = time.time()
+    except requests.HTTPError as e:
+        r = e.response
+        print(f"[web_search] HTTP {r.status_code} after {time.time()-start:.1f}s "
+              f"| body[:200]={r.text[:200]!r}")
+        return []
     except Exception as e:
         print(f"[web_search] FAILED for query {query[:60]!r}: {type(e).__name__}: {e}")
         return []
