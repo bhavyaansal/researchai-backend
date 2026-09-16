@@ -9,7 +9,7 @@ Requires the SEARXNG_URL environment variable, e.g.:
     SEARXNG_URL=https://researchai-searxng-1.up.railway.app
 """
 import os
-from time import time
+import time
 import requests
 
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "").rstrip("/")
