@@ -45,6 +45,8 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
         query = query[:300]
 
     try:
+        words = query.split()
+        query = '"' + " ".join(words[:10]) + '"'
         resp = requests.get(
             f"{SEARXNG_URL}/search",
             params={"q": query, "format": "json"},
