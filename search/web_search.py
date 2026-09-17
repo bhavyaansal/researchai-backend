@@ -44,10 +44,12 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
     # tend to return nothing useful. Cap length defensively.
     if len(query) > 300:
         query = query[:300]
+        
+    words = query.split()
+    query = '"' + " ".join(words[:10]) + '"'
 
+    start = time.time()
     try:
-        words = query.split()
-        query = '"' + " ".join(words[:10]) + '"'
         resp = requests.get(
             f"{SEARXNG_URL}/search",
             params={"q": query, "format": "json"},
@@ -55,7 +57,6 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
         )
         resp.raise_for_status()
         data = resp.json()
-        start = time.time()
     except requests.HTTPError as e:
         r = e.response
         print(f"[web_search] HTTP {r.status_code} after {time.time()-start:.1f}s "
