@@ -15,6 +15,10 @@ import requests
 SEARXNG_URL = os.environ.get("SEARXNG_URL", "").rstrip("/")
 REQUEST_TIMEOUT = 6  # seconds — keep short so one slow query can't stall a whole scan
 
+headers={
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+}
+
 
 class SearXNGNotConfiguredError(Exception):
     pass
@@ -54,6 +58,7 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
             f"{SEARXNG_URL}/search",
             params={"q": query, "format": "json"},
             timeout=REQUEST_TIMEOUT,
+            headers=headers,
         )
         resp.raise_for_status()
         data = resp.json()
