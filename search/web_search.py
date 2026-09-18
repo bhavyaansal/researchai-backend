@@ -2,8 +2,6 @@
 Web search client for the self-hosted SearXNG instance.
 
 SearXNG searches Bing and returns search-result URLs.
-The URLs will later be fetched so we can compare against the
-actual webpage text instead of only the search-engine snippet.
 """
 
 import os
@@ -15,7 +13,7 @@ SEARXNG_URL = os.environ.get(
     "https://researchai-searxng-1.onrender.com"
 ).rstrip("/")
 
-REQUEST_TIMEOUT = 8
+REQUEST_TIMEOUT = 10
 
 HEADERS = {
     "User-Agent": (
@@ -30,9 +28,29 @@ class SearXNGNotConfiguredError(Exception):
     pass
 
 
+def _make_search_query(text: str) -> str:
+    """
+    Convert a paragraph into a short search query.
+
+    We intentionally use only the first ~15 words.
+    Sending an entire paragraph to SearXNG/Bing can cause
+    slow requests and 502 errors.
+    """
+
+    words = text.strip().split()
+
+    # Remove extremely short fragments.
+    words = [word for word in words if len(word) > 1]
+
+    # Keep the search request small.
+    query = " ".join(words[:15])
+
+    return query
+
+
 def web_search(query: str, max_results: int = 5) -> list[dict]:
     """
-    Search the self-hosted SearXNG instance.
+    Search SearXNG and return search result metadata.
 
     Returns:
         [
@@ -42,9 +60,6 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
                 "content": "..."
             }
         ]
-
-    The content field is only the search-engine snippet.
-    The URL will be used later to fetch the actual webpage.
     """
 
     searxng_url = os.environ.get(
@@ -62,16 +77,17 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
     if not query:
         return []
 
-    # Limit query size so very large paragraphs don't create
-    # unnecessarily large search requests.
-    if len(query) > 300:
-        query = query[:300]
+    # Convert long paragraph into a small search query.
+    search_query = _make_search_query(query)
+
+    if not search_query:
+        return []
 
     try:
         response = requests.get(
             f"{searxng_url}/search",
             params={
-                "q": query,
+                "q": search_query,
                 "format": "json",
             },
             timeout=REQUEST_TIMEOUT,
@@ -81,6 +97,14 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
         response.raise_for_status()
 
         data = response.json()
+
+    except requests.HTTPError as e:
+        print(
+            f"[web_search] HTTP error: "
+            f"{e.response.status_code} | "
+            f"query={search_query[:100]!r}"
+        )
+        return []
 
     except requests.RequestException as e:
         print(
@@ -103,7 +127,6 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
         url = (item.get("url") or "").strip()
         content = (item.get("content") or "").strip()
 
-        # A web result without a URL isn't useful to us.
         if not url:
             continue
 
@@ -114,7 +137,7 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
         })
 
     print(
-        f"[web_search] query={query[:80]!r} "
+        f"[web_search] query={search_query!r} "
         f"results={len(results)}"
     )
 
