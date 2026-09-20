@@ -1,7 +1,7 @@
 """
 web_search.py
 
-Client for the self-hosted SearXNG instance.
+Client for Tavily Search API.
 
 Used by the plagiarism detector to search the web for
 possible matching content.
@@ -10,13 +10,10 @@ possible matching content.
 import os
 import requests
 
-# Read SearXNG URL from environment variable.
-# Local fallback is included so the code does not crash
-# if the environment variable is missing.
-SEARXNG_URL = os.environ.get(
-    "SEARXNG_URL",
-    "https://researchai-searxng-1.onrender.com"
-).rstrip("/")
+# Read Tavily API key from environment variable
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY")
+
+TAVILY_URL = "https://api.tavily.com/search"
 
 REQUEST_TIMEOUT = 10
 
@@ -29,8 +26,9 @@ HEADERS = {
     )
 }
 
-class SearXNGNotConfiguredError(Exception):
+class TavilyNotConfiguredError(Exception):
     pass
+
 
 def _make_search_query(text: str) -> str:
     """
@@ -50,9 +48,10 @@ def _make_search_query(text: str) -> str:
 
     return query
 
+
 def web_search(query: str, max_results: int = 5) -> list[dict]:
     """
-    Search the configured SearXNG instance.
+    Search using Tavily Search API.
 
     Returns a list like:
 
@@ -65,20 +64,16 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
     ]
     """
 
-    # Get the URL again from environment variables.
-    # This is useful on Render because environment variables
-    # are provided by the deployment environment.
-    searxng_url = os.environ.get(
-        "SEARXNG_URL",
-        SEARXNG_URL
-    ).rstrip("/")
+    # Get API key from environment
+    api_key = os.environ.get("TAVILY_API_KEY", TAVILY_API_KEY)
 
-    if not searxng_url:
-        raise SearXNGNotConfiguredError(
-            "SEARXNG_URL is not configured."
+    if not api_key:
+        raise TavilyNotConfiguredError(
+            "TAVILY_API_KEY is not configured. "
+            "Add it to your Render environment variables."
         )
 
-    # Create a shorter search query.
+    # Create a shorter search query
     search_query = _make_search_query(query)
 
     if not search_query:
@@ -87,35 +82,28 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
     # ---------------------------------------------------------
     # DEBUG LOGS
     # ---------------------------------------------------------
-    # These will help us determine exactly what the FastAPI
-    # server is sending to SearXNG.
-    print(
-        f"[web_search] SEARXNG_URL = {searxng_url}"
-    )
-
-    print(
-        f"[web_search] QUERY = {search_query}"
-    )
+    print(f"[web_search] TAVILY_URL = {TAVILY_URL}")
+    print(f"[web_search] QUERY = {search_query}")
 
     # ---------------------------------------------------------
-    # SEND REQUEST TO SEARXNG
+    # SEND REQUEST TO TAVILY
     # ---------------------------------------------------------
     try:
-        response = requests.get(
-            f"{searxng_url}/search",
-            params={
-                "q": search_query,
-                "format": "json",
+        response = requests.post(
+            TAVILY_URL,
+            json={
+                "api_key": api_key,
+                "query": search_query,
+                "max_results": max_results,
+                "include_answer": True,
             },
             timeout=REQUEST_TIMEOUT,
             headers=HEADERS,
         )
 
-        print(
-            f"[web_search] HTTP STATUS = {response.status_code}"
-        )
+        print(f"[web_search] HTTP STATUS = {response.status_code}")
 
-        # Raise an exception for 4xx/5xx responses.
+        # Raise an exception for 4xx/5xx responses
         response.raise_for_status()
 
     except requests.exceptions.RequestException as e:
@@ -123,7 +111,6 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
             f"[web_search] HTTP error: {e} "
             f"| query={search_query!r}"
         )
-
         return []
 
     # ---------------------------------------------------------
@@ -132,9 +119,7 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
     try:
         data = response.json()
     except ValueError as e:
-        print(
-            f"[web_search] Invalid JSON response: {e}"
-        )
+        print(f"[web_search] Invalid JSON response: {e}")
         return []
 
     # ---------------------------------------------------------
@@ -148,9 +133,10 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
 
         url = (item.get("url") or "").strip()
 
+        # Tavily returns 'content' directly, unlike SearXNG
         content = (item.get("content") or "").strip()
 
-        # We only keep results that have some text.
+        # We only keep results that have some text
         if not content:
             continue
 
@@ -160,8 +146,6 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
             "content": content,
         })
 
-    print(
-        f"[web_search] RESULTS = {len(results)}"
-    )
+    print(f"[web_search] RESULTS = {len(results)}")
 
     return results
