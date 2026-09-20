@@ -1,14 +1,14 @@
 """
-report/pdf_report.py
---------------------
+api/routes/analysis_pdf.py
+--------------------------
 Builds the "Academic Integrity & Plagiarism Analysis" PDF (cover metrics, top
 sources table, highlighted document text, segment-by-segment breakdown).
 
 Only dependency: reportlab (already in requirements.txt).
 
 Usage:
-    from report.pdf_report import build_report_pdf
-    pdf_bytes = build_report_pdf(report_dict)
+    from .analysis_pdf import build_report_pdf, job_to_report
+    pdf_bytes = build_report_pdf(job_to_report(job, spans))
 
 See `normalize_report()` for the expected input shape.
 """
@@ -130,12 +130,13 @@ def normalize_report(r: dict) -> dict:
 
     counts = {t: 0 for t in TYPE_STYLE}
     for s in segs:
-        counts[s["match_type"]] += 1
-    total = r["total_sentences"]
+        counts[s["match_type"]] += int(s.get("sentence_count", 1) or 1)
     matched = sum(counts.values())
+    r["total_sentences"] = total = max(r["total_sentences"], matched)
     r["counts"] = counts
     r["original_count"] = max(0, total - matched)
-    r["plagiarism_score"] = r.get("plagiarism_score", _pct(matched, total))
+    r["plagiarism_score"] = int(round(r["plagiarism_score"])) if r.get("plagiarism_score") is not None \
+        else _pct(matched, total)
 
     # Group segments by source for the "Top reference sources" table
     grouped: dict[str, dict] = {}
@@ -158,6 +159,10 @@ def _highlight_document(text: str, segments: list[dict]) -> str:
     for s in segments:
         needle = (s.get("analyzed_text") or "").strip()
         if not needle:
+            continue
+        a, b = s.get("start"), s.get("end")
+        if a is not None and b is not None and text[a:b].strip() == needle:
+            spans.append((a, b, s["match_type"]))
             continue
         idx = text.find(needle)
         if idx < 0:  # whitespace-tolerant fallback
@@ -433,3 +438,51 @@ def build_report_pdf(report: dict, footer_left: str | None = None) -> bytes:
         canvas_cls = type("C", (_NumberedCanvas,), {"footer_left": footer_left})
     doc.build(story, canvasmaker=canvas_cls)
     return buf.getvalue()
+
+
+# --------------------------------------------------------------------------- #
+# Adapter: ResearchAI Job + FlaggedSpan rows  ->  report dict
+# --------------------------------------------------------------------------- #
+_SENT_RE = re.compile(r"[.!?]+(?:\s|$)")
+
+
+def _count_sentences(t: str) -> int:
+    return max(1, len(_SENT_RE.findall(t or "")))
+
+
+def classify_span(lexical: float, semantic: float) -> str:
+    """
+    Map your two detector scores (0-1) to a match type.
+    Tune the 0.5 cut-off to match how your pipeline treats a "hit".
+    """
+    lex, sem = (lexical or 0.0), (semantic or 0.0)
+    if lex >= 0.5 and sem >= 0.5:
+        return "HYBRID"
+    return "LEXICAL" if lex >= sem else "SEMANTIC"
+
+
+def job_to_report(job, spans) -> dict:
+    """`job` = db.models.Job, `spans` = list[db.models.FlaggedSpan] (duck-typed)."""
+    full_text = job.full_text or ""
+    segments = []
+    for sp in sorted(spans, key=lambda x: x.start_char):
+        segments.append({
+            "analyzed_text": sp.original_text,
+            "source_text": sp.matched_source_text or "",
+            "source_title": sp.matched_source_title or "Unknown Source",
+            "source_details": sp.source_url or "Local reference corpus",
+            "match_type": classify_span(sp.lexical_score, sp.semantic_score),
+            "similarity": sp.combined_score or 0.0,
+            "sentence_count": _count_sentences(sp.original_text),
+            "start": sp.start_char,
+            "end": sp.end_char,
+        })
+    return {
+        "document_name": job.filename or "Untitled document",
+        "generated_at": job.updated_at or job.created_at,
+        "document_text": full_text,
+        "total_characters": len(full_text),
+        "total_sentences": _count_sentences(full_text),
+        "plagiarism_score": (job.global_similarity_score or 0.0) * 100,
+        "segments": segments,
+    }
