@@ -13,23 +13,23 @@ from rapidfuzz import fuzz
 
 from search.lexical import search_lexical
 from search.semantic import search_semantic
-from search.web_search import web_search, SearXNGNotConfiguredError
+from search.web_search import web_search, TavilyNotConfiguredError
 from scoring.similarity import combined_score
 from config import settings
 
 
 def _web_fallback_search(query_text: str, top_k: int = 5) -> list[dict]:
     """
-    Query the web via SearXNG and score each returned snippet against
+    Query the web via Tavily and score each returned snippet against
     query_text using the same fuzzy-matching style search_lexical uses.
     Returns candidates already shaped like local search results, plus a
-    source_url field. Returns [] if SearXNG isn't configured or the
+    source_url field. Returns [] if Tavily isn't configured or the
     request fails for any reason — a broken/unset web search should
     never crash a scan.
     """
     try:
         web_results = web_search(query_text, max_results=top_k)
-    except Exception as e:
+    except Exception as e:  # Catches TavilyNotConfiguredError and any other error
         print(f"[web_search] FAILED for query {query_text[:60]!r}: {type(e).__name__}: {e}")
         return []
 
