@@ -10,6 +10,7 @@ class Settings:
     # Storage
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")
     CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "./chroma_store")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./data/plagiarism.db")
     
     # GROQ API 
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
