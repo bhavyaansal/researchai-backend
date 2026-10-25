@@ -83,7 +83,7 @@ class FlaggedSpan(Base):
 
     matched_source_title = Column(String, nullable=True)
     matched_source_text = Column(Text, nullable=True)
-    # Populated only for web-sourced matches (via SearXNG fallback).
+    # Populated only for web-sourced matches
     # Stays NULL for matches found in the local SourceDocument corpus.
     source_url = Column(String, nullable=True)
 

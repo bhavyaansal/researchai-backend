@@ -133,7 +133,7 @@ def web_search(query: str, max_results: int = 5) -> list[dict]:
 
         url = (item.get("url") or "").strip()
 
-        # Tavily returns 'content' directly, unlike SearXNG
+        # Tavily returns 'content' directly
         content = (item.get("content") or "").strip()
 
         # We only keep results that have some text

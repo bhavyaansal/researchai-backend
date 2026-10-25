@@ -2,10 +2,9 @@
 Hybrid search: merges lexical (BM25) and semantic (vector) search results
 into a single ranked list, deduplicated by source text.
 
-Falls back to a live web search (via a self-hosted SearXNG instance) when
-the local corpus has no meaningful match, so uploads get checked against
-real web content — not just the small manually-curated SourceDocument
-table. The fallback is budgeted by the caller (see WebBudget in
+Falls back to a live web search whenthe local corpus has no meaningful match, 
+so uploads get checked against real web content — not just the small manually-curated 
+SourceDocument table. The fallback is budgeted by the caller (see WebBudget in
 tasks/pipeline_task.py) so one document can't trigger unlimited slow
 network calls.
 """

@@ -13,20 +13,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from db.models import SessionLocal, init_db, SourceDocument
 from search.semantic import index_source_documents
 
-SAMPLE_SOURCES = []
-
-
 def main():
     init_db()
     db = SessionLocal()
-
-    for src in SAMPLE_SOURCES:
-        existing = db.query(SourceDocument).filter(
-            SourceDocument.sentence_text == src["text"]
-        ).first()
-        if not existing:
-            doc = SourceDocument(source_title=src["title"], sentence_text=src["text"])
-            db.add(doc)
 
     db.commit()
 
@@ -39,7 +28,6 @@ def main():
     if chroma_records:
         index_source_documents(chroma_records)
         print(f"Synced {len(chroma_records)} source documents into SQLite + ChromaDB.")
-
 
 if __name__ == "__main__":
     main()
