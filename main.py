@@ -27,6 +27,7 @@ def on_startup():
 
 
 @app.get("/")
+@app.get("/health")
 def health_check():
     return {"status": "ok", "service": "plagiarism-backend"}
 
